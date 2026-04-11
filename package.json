@@ -4,7 +4,7 @@
   "description": "Extends /manage/userimport with domain + role columns",
   "main": "index.ts",
   "author": "",
-  "license": "MIT",
+  "license": "AGPL-3.0-or-later",
   "peerDependencies": {
     "hydrooj": "*"
   }

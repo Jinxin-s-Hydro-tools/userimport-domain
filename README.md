@@ -98,4 +98,20 @@ pm2 restart hydrooj
 | `Cannot read properties of undefined (reading 'getByEmail')` | Imported `user as UserModel` from `hydrooj` — undefined      | Use `global.Hydro.model.user` inside handler                 |
 | `Addon load fail`                                            | Wrong entry filename (`handler.ts` instead of `index.ts`)    | Cordis-based Hydro loads from `index.ts`                     |
 | Plugin loads but `apply` never called                        | Top-level `db.collection()` crash at require-time            | Move db calls inside `apply()` or handler methods            |
+
+## License
+
+This project is licensed under the AGPL-3.0-or-later license, in accordance with the Hydro OJ framework.
+
+### Additional Terms (per Hydro AGPL-3.0-or-later)
+
+Based on AGPL3 Section 7, when using this software, you must comply with the following additional terms:
+
+1. Do not remove the copyright notice and attribution of this project. (__AGPL3 7(b)__)
+2. When redistributing modified versions of this software, indicate the modifications in a recognizable way in the software name or version number. (__AGPL3 7(c)__)
+3. Unless permitted, do not use the author's name for promotional purposes. (__AGPL3 7(d)__)
+
+That is: When deploying Hydro, keep the "Powered by Hydro" text at the bottom, with "Hydro" linking to `hydro.js.org/this repository/fork`. If you modify/extend the source code, you must also open-source it under AGPL-3.0-or-later, and indicate in the footer as "Powered by Hydro, Modified by xxx".
+
+For commercial closed-source usage, please contact the Hydro team to purchase alternative licensing.
 | Sidebar items missing after template override                | `manage_base.html` uses `ui.getNodes('ControlPanel')` dynamically | Use `ctx.injectUI('ControlPanel', ...)` instead of overriding the template |
