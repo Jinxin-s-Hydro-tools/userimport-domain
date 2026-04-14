@@ -1,22 +1,3 @@
-/**
- * @hydrooj/userimport-domain
- *
- * Copyright (c) 2024 Jinxin-s-Hydro-tools
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program. If not, see <https://www.gnu.org/licenses/>.
- */
-
 import { Context, Handler, param, PRIV, Types, db } from 'hydrooj';
 
 const RE_MAIL = /^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)+$/i;
@@ -73,6 +54,10 @@ class UserImportDomainHandler extends Handler {
         const domainCache = new Map<string, any>();
         const roleCache = new Map<string, Set<string>>();
 
+        // Track duplicates within the current input batch
+        const seenEmails = new Map<string, number>();    // email -> first lineNum
+        const seenUsernames = new Map<string, number>(); // username -> first lineNum
+
         for (const [i, u] of _users.split('\n').entries()) {
             if (!u.trim()) continue;
             const row = parseLine(u, i + 1);
@@ -80,8 +65,26 @@ class UserImportDomainHandler extends Handler {
             if (!isEmail(row.email)) { messages.push(`Line ${row.lineNum}: Invalid email.`); continue; }
             if (!isUname(row.username)) { messages.push(`Line ${row.lineNum}: Invalid username.`); continue; }
             if (!isPassword(row.password)) { messages.push(`Line ${row.lineNum}: Invalid password.`); continue; }
-            if (await UserModel.getByEmail('system', row.email)) { messages.push(`Line ${row.lineNum}: Email ${row.email} already exists.`); continue; }
-            if (await UserModel.getByUname('system', row.username)) { messages.push(`Line ${row.lineNum}: Username ${row.username} already exists.`); continue; }
+
+            // Check duplicates within this batch first
+            const emailKey = row.email.toLowerCase();
+            const unameKey = row.username.toLowerCase();
+            if (seenEmails.has(emailKey)) {
+                messages.push(`Line ${row.lineNum}: Email ${row.email} duplicates line ${seenEmails.get(emailKey)}.`);
+                continue;
+            }
+            if (seenUsernames.has(unameKey)) {
+                messages.push(`Line ${row.lineNum}: Username ${row.username} duplicates line ${seenUsernames.get(unameKey)}.`);
+                continue;
+            }
+
+            // Then check against the database
+            if (await UserModel.getByEmail('system', row.email)) { messages.push(`Line ${row.lineNum}: Email ${row.email} already exists in database.`); continue; }
+            if (await UserModel.getByUname('system', row.username)) { messages.push(`Line ${row.lineNum}: Username ${row.username} already exists in database.`); continue; }
+
+            // Record as seen
+            seenEmails.set(emailKey, row.lineNum);
+            seenUsernames.set(unameKey, row.lineNum);
 
             let resolvedDomainId: string | undefined;
             if (row.domainInput) {
