@@ -20,7 +20,7 @@
 import { Context, Handler, param, PRIV, Types, db } from 'hydrooj';
 
 const RE_MAIL = /^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)+$/i;
-const RE_UNAME = /^.{3,254}$/i;
+const RE_UNAME = /^.{1,254}$/i;
 const isEmail = (s: string) => RE_MAIL.test(s);
 const isUname = (s: string) => RE_UNAME.test(s);
 const isPassword = (s: string) => s && s.length >= 5;
