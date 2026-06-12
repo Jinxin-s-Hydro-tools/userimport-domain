@@ -115,7 +115,7 @@ class UserImportDomainHandler extends Handler {
                     const uid = await UserModel.create(row.email, row.username, row.password);
                     if (row.resolvedDomainId) {
                         const role = row.role?.trim() || 'default';
-                        await DomainModel.setUserRole(row.resolvedDomainId, uid, role);
+                        await DomainModel.setUserRole(row.resolvedDomainId, uid, role, true);
                         messages.push(`${row.username}: created, enrolled in "${row.resolvedDomainId}" as "${role}".`);
                     } else {
                         messages.push(`${row.username}: created.`);
