@@ -29,7 +29,7 @@
         <div class="form__input">
           <textarea name="users" class="textbox" rows="10"
             style="font-family:monospace;width:100%"
-            placeholder="foo@example.com,user1,pass1,system,stu"></textarea>
+            placeholder="foo@example.com,user1,pass1,system,stu">{% if usersText %}{{ usersText }}{% endif %}</textarea>
         </div>
       </div>
       <div class="form__item">

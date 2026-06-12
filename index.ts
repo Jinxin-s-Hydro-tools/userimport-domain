@@ -125,7 +125,7 @@ class UserImportDomainHandler extends Handler {
                 }
             }
         }
-        this.response.body = { users: validRows, messages };
+        this.response.body = { users: validRows, messages, usersText: _users };
         this.response.template = 'userimport_domain.html';
     }
 }
