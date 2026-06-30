@@ -13,8 +13,11 @@ This is a **Hydro OJ addon** that extends the built-in `/manage/userimport` with
 hydrooj addon add /path/to/user-import-with-domain
 pm2 restart hydrooj
 
-# The addon's URL once installed
+# The addon's AJAX URL once installed
 /manage/userimport-domain
+
+# User-facing entry point
+/manage/userimport
 ```
 
 There are no build, lint, or test commands — this is a single TypeScript file loaded directly by Hydro at runtime.
@@ -25,13 +28,12 @@ There are no build, lint, or test commands — this is a single TypeScript file 
 
 **Plugin registration** (`apply`):
 - `ctx.Route(...)` — registers `/manage/userimport-domain` with `UserImportDomainHandler`
-- `ctx.injectUI('ControlPanel', ...)` — adds a sidebar entry; consumed by `templates/manage_base.html` via `ui.getNodes('ControlPanel')`
-- `ctx.i18n.load(...)` — registers Chinese and English sidebar labels
+- `ctx.i18n.load(...)` — registers Chinese and English labels
 
 **Handler** (`UserImportDomainHandler`):
 - Requires `PRIV_EDIT_SYSTEM` privilege
-- `get()` — renders the empty form
-- `post()` — parses input, validates, and either previews (`draft=true`) or commits (`draft=false`)
+- `get()` — redirects to the combined `/manage/userimport` page
+- `post()` — parses input, validates, and either previews (`draft=true`) or commits (`draft=false`); used by the second form via AJAX
 
 **Input parsing** (`parseLine`): Supports comma or tab delimiters, auto-detects column count (3–6 columns), mapping to email/username/password/displayName/domain/role.
 
@@ -46,5 +48,5 @@ There are no build, lint, or test commands — this is a single TypeScript file 
 - **Model access**: Use `global.Hydro.model.user` / `global.Hydro.model.domain` inside handler methods — do NOT import them from the `hydrooj` package at module level; they are undefined at load time.
 - **db access**: `db.collection('domain')` at module level is safe (db is connected by load time), but other db operations should stay inside `apply()` or handlers.
 - **Entry file must be `index.ts`**: Cordis-based Hydro loads from this filename by convention.
-- **Sidebar items**: The `manage_base.html` template uses `ui.getNodes('ControlPanel')` dynamically, so sidebar entries MUST be registered via `ctx.injectUI('ControlPanel', ...)` — overriding the template would lose them.
+- **No Control Panel sidebar item**: The addon intentionally does not call `ctx.injectUI('ControlPanel', ...)`; it replaces the built-in `/manage/userimport` template with a combined two-form page instead.
 - **Templates**: Extend `manage_base.html` (which extends `layout/basic.html`). The `manage_content` block is where page content goes. CSRF token is accessed via `handler.csrfToken`.

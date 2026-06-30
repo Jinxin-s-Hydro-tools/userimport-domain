@@ -13,7 +13,15 @@
           </div>
           <ol class="menu collapsed">
             {%- for item in ui.getNodes('ControlPanel') -%}
-              {{ sidemenu.render_item(item.icon, item.name) }}
+              {% set target_url = url(item.name) %}
+              <li class="menu__item" id="menu-item-{{ item.name }}">
+                <a href="{{ target_url }}" class="menu__link{% if handler.request.path == target_url or page_name == item.name %} active{% endif %}">
+                  {% if item.icon %}
+                    <span class="icon icon-{{ item.icon }}"></span>
+                  {% endif %}
+                  {{ _(item.name) }}
+                </a>
+              </li>
             {%- endfor -%}
           </ol>
         </li>

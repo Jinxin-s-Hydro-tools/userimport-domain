@@ -7,12 +7,13 @@ A Hydro OJ addon that extends user import with domain enrollment and role assign
 
 ## Features
 
-- Batch import users from a textarea, same as the built-in `/manage/userimport`
+- Keeps the built-in `/manage/userimport` account-only import form
+- Adds a second import form on `/manage/userimport` for domain enrollment and role assignment
 - Supports an extended format with **domain** and **role** columns
 - Domain can be specified by **internal ID** (e.g. `system`) or **display name** (e.g. `c++`)
 - Role is validated against the domain's actual role list before import
 - Preview mode shows exactly what will be imported before committing
-- Adds an entry to the Control Panel sidebar
+- Uses one combined `/manage/userimport` page with two textareas and two button groups
 
 ## URL
 
@@ -20,7 +21,7 @@ A Hydro OJ addon that extends user import with domain enrollment and role assign
 /manage/userimport-domain
 ```
 
-Also accessible from the **Control Panel** sidebar as **导入用户（域+角色）** / **Import User (Domain+Role)**.
+The route is kept as an AJAX endpoint for the second form on `/manage/userimport`.
 
 ## Input Format
 
@@ -56,8 +57,8 @@ foo@example.com,user1,password1,Alice,system,stu
 
 ## Usage
 
-1. Go to `/manage/userimport-domain` or click **Import User (Domain+Role)** in the Control Panel sidebar
-2. Paste your user list into the textarea
+1. Go to `/manage/userimport`
+2. Paste account-only rows into the first textarea, or domain/role rows into the second textarea
 3. Click **Preview** to validate — check the output for any errors
 4. If preview looks correct, click **Import**
 
@@ -68,6 +69,7 @@ user-import-with-domain/
   index.ts                        ← main plugin file
   package.json
   templates/
+    manage_user_import.html       ← built-in import page plus domain/role form
     userimport_domain.html        ← page template
 ```
 
@@ -79,8 +81,8 @@ The key implementation details:
 - Models are accessed via `global.Hydro.model.user` and `global.Hydro.model.domain` inside handler methods — NOT imported at module level
 - `db.collection('domain')` is called at module level (safe, db is connected by load time)
 - Domain resolution tries `DomainModel.get(input)` first (matches `_id`), then falls back to `collDomain.findOne({ name: input })` (matches display name)
-- Route is registered as a new URL — does not attempt to override the built-in `/manage/userimport`
-- Sidebar entry added via `ctx.injectUI('ControlPanel', ...)` which feeds into `ui.getNodes('ControlPanel')` in `manage_base.html`
+- Route is registered as `/manage/userimport-domain` for AJAX POST from the combined page
+- `templates/manage_user_import.html` overrides the built-in import template to show both import forms
 
 ## Installation
 
@@ -114,4 +116,3 @@ Based on AGPL3 Section 7, when using this software, you must comply with the fol
 That is: When deploying Hydro, keep the "Powered by Hydro" text at the bottom, with "Hydro" linking to `hydro.js.org/this repository/fork`. If you modify/extend the source code, you must also open-source it under AGPL-3.0-or-later, and indicate in the footer as "Powered by Hydro, Modified by xxx".
 
 For commercial closed-source usage, please contact the Hydro team to purchase alternative licensing.
-| Sidebar items missing after template override                | `manage_base.html` uses `ui.getNodes('ControlPanel')` dynamically | Use `ctx.injectUI('ControlPanel', ...)` instead of overriding the template |
