@@ -1,0 +1,99 @@
+{% import "components/user.html" as user %}
+{% extends "manage_base.html" %}
+{% block manage_content %}
+<div class="section">
+  <div class="section__header">
+    <h1 class="section__title" data-heading>{{ _('Import User') }}</h1>
+  </div>
+  <div class="section__body">
+    <blockquote class="note">{{ _('Create users only.') }}</blockquote>
+    {{ noscript_note.render() }}
+    <pre name="messages"></pre>
+    {{ form.form_textarea({
+        columns:null,
+        label:'Users',
+        name:'users',
+        nospellcheck: true
+        }) }}
+    <div class="row"><div class="column">
+      <button name="preview" class="rounded primary button">{{ _('Preview') }}</button>
+      <button name="submit" class="rounded button">{{ _('Submit') }}</button>
+    </div></div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section__header">
+    <h1 class="section__title" data-heading>{{ _('Import User With Domain And Role') }}</h1>
+  </div>
+  <div class="section__body">
+    <blockquote class="note">
+      <p>Comma or tab separated. Columns:</p>
+      <ul style="margin:.3em 0 .3em 1.4em">
+        <li><code>email, username, password</code></li>
+        <li><code>email, username, password, domain</code></li>
+        <li><code>email, username, password, domain, role</code></li>
+        <li><code>email, username, password, displayName, domain, role</code></li>
+      </ul>
+      <p><b>domain</b> = ID (e.g. <code>system</code>) or display name (e.g. <code>c++</code>)<br>
+      <b>role</b> = e.g. <code>stu</code>, <code>default</code></p>
+    </blockquote>
+    <pre name="domain_messages"></pre>
+    {{ form.form_textarea({
+        columns:null,
+        label:'Users With Domain And Role',
+        name:'domain_users',
+        nospellcheck: true
+        }) }}
+    <div class="row"><div class="column">
+      <button name="domain_preview" class="rounded primary button">{{ _('Preview') }}</button>
+      <button name="domain_submit" class="rounded button">{{ _('Submit') }}</button>
+    </div></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block script %}
+{{ super() }}
+<script>
+(function () {
+  var textarea = document.querySelector('[name="domain_users"]');
+  var messages = document.querySelector('[name="domain_messages"]');
+  var preview = document.querySelector('[name="domain_preview"]');
+  var submit = document.querySelector('[name="domain_submit"]');
+  if (!textarea || !messages || !preview || !submit) return;
+
+  function run(draft) {
+    preview.disabled = true;
+    submit.disabled = true;
+    messages.textContent = '';
+    fetch('{{ url('userimport_domain') }}', {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        users: textarea.value,
+        draft: draft
+      })
+    }).then(function (res) {
+      return res.json().then(function (data) {
+        if (!res.ok || data.error) throw new Error((data.error && data.error.message) || res.statusText);
+        return data;
+      });
+    }).then(function (data) {
+      messages.textContent = (data.messages || []).join('\n');
+    }).catch(function (err) {
+      messages.textContent = err.message || String(err);
+    }).then(function () {
+      preview.disabled = false;
+      submit.disabled = false;
+    });
+  }
+
+  preview.addEventListener('click', function () { run(true); });
+  submit.addEventListener('click', function () { run(false); });
+}());
+</script>
+{% endblock %}

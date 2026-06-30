@@ -40,8 +40,7 @@ class UserImportDomainHandler extends Handler {
     async prepare() { this.checkPriv(PRIV.PRIV_EDIT_SYSTEM); }
 
     async get() {
-        this.response.body.users = [];
-        this.response.template = 'userimport_domain.html';
+        this.response.redirect = this.url('manage_user_import');
     }
 
     @param('users', Types.Content)
@@ -115,7 +114,7 @@ class UserImportDomainHandler extends Handler {
                     const uid = await UserModel.create(row.email, row.username, row.password);
                     if (row.resolvedDomainId) {
                         const role = row.role?.trim() || 'default';
-                        await DomainModel.setUserRole(row.resolvedDomainId, uid, role);
+                        await DomainModel.setUserRole(row.resolvedDomainId, uid, role, true);
                         messages.push(`${row.username}: created, enrolled in "${row.resolvedDomainId}" as "${role}".`);
                     } else {
                         messages.push(`${row.username}: created.`);
@@ -126,13 +125,23 @@ class UserImportDomainHandler extends Handler {
             }
         }
         this.response.body = { users: validRows, messages };
-        this.response.template = 'userimport_domain.html';
     }
 }
 
 export async function apply(ctx: Context) {
     ctx.Route('userimport_domain', '/manage/userimport-domain', UserImportDomainHandler, PRIV.PRIV_EDIT_SYSTEM);
-    ctx.injectUI('ControlPanel', 'userimport_domain', { icon: 'import' }, PRIV.PRIV_EDIT_SYSTEM);
-    ctx.i18n.load('zh', { userimport_domain: '导入用户（域+角色）' });
-    ctx.i18n.load('en', { userimport_domain: 'Import User (Domain+Role)' });
+    ctx.i18n.load('zh', {
+        userimport_domain: '导入用户（域+角色）',
+        'Import User With Domain And Role': '同时导入域和角色',
+        'Users With Domain And Role': '用户列表（域和角色）',
+        'Create users only.': '仅注册账号',
+        'Create users and add them to domains with roles.': '同时导入域和角色',
+    });
+    ctx.i18n.load('en', {
+        userimport_domain: 'Import User (Domain+Role)',
+        'Import User With Domain And Role': 'Import User With Domain And Role',
+        'Users With Domain And Role': 'Users With Domain And Role',
+        'Create users only.': 'Create users only.',
+        'Create users and add them to domains with roles.': 'Create users and add them to domains with roles.',
+    });
 }
