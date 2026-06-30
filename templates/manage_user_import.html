@@ -51,6 +51,43 @@
     </div></div>
   </div>
 </div>
+
+<div class="section">
+  <div class="section__header">
+    <h1 class="section__title" data-heading>{{ _('Batch Change Password') }}</h1>
+  </div>
+  <div class="section__body">
+    <blockquote class="note">
+      <p><strong>{{ _('Format') }}:</strong> {{ _('One entry per line, comma or tab separated:') }}</p>
+      <ul style="margin:.3em 0 .3em 1.4em">
+        <li><code>username, password</code></li>
+      </ul>
+      <p>{{ _('Lines starting with # are treated as comments and ignored.') }}</p>
+      <p><strong>{{ _('Example:') }}</strong></p>
+      <pre style="background:#f5f5f5;border:1px solid #ddd;padding:8px;font-size:.85em;line-height:1.5"># Change passwords for these users
+alice, newpass123
+bob, secret456
+charlie, mynewpwd789</pre>
+      <ul style="margin:.3em 0 0 1.4em">
+        <li>{{ _('Use Preview first to validate your input before committing.') }}</li>
+        <li>{{ _('Passwords must be at least 5 characters.') }}</li>
+        <li>{{ _('Duplicate usernames within the same batch will be skipped.') }}</li>
+        <li>{{ _('Changing password forces the user to re-login.') }}</li>
+      </ul>
+    </blockquote>
+    <pre name="pwd_messages"></pre>
+    {{ form.form_textarea({
+        columns:null,
+        label:'Users',
+        name:'pwd_users',
+        nospellcheck: true
+        }) }}
+    <div class="row"><div class="column">
+      <button name="pwd_preview" class="rounded primary button">{{ _('Preview') }}</button>
+      <button name="pwd_submit" class="rounded button">{{ _('Execute') }}</button>
+    </div></div>
+  </div>
+</div>
 {% endblock %}
 
 {% block script %}
@@ -68,6 +105,47 @@
     submit.disabled = true;
     messages.textContent = '';
     fetch('{{ url('userimport_domain') }}', {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        users: textarea.value,
+        draft: draft
+      })
+    }).then(function (res) {
+      return res.json().then(function (data) {
+        if (!res.ok || data.error) throw new Error((data.error && data.error.message) || res.statusText);
+        return data;
+      });
+    }).then(function (data) {
+      messages.textContent = (data.messages || []).join('\n');
+    }).catch(function (err) {
+      messages.textContent = err.message || String(err);
+    }).then(function () {
+      preview.disabled = false;
+      submit.disabled = false;
+    });
+  }
+
+  preview.addEventListener('click', function () { run(true); });
+  submit.addEventListener('click', function () { run(false); });
+}());
+
+// Batch change password AJAX
+(function () {
+  var textarea = document.querySelector('[name="pwd_users"]');
+  var messages = document.querySelector('[name="pwd_messages"]');
+  var preview = document.querySelector('[name="pwd_preview"]');
+  var submit = document.querySelector('[name="pwd_submit"]');
+  if (!textarea || !messages || !preview || !submit) return;
+
+  function run(draft) {
+    preview.disabled = true;
+    submit.disabled = true;
+    messages.textContent = '';
+    fetch('{{ url('batch_change_pwd') }}', {
       method: 'POST',
       headers: {
         'Accept': 'application/json',
