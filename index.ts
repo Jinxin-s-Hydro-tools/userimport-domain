@@ -136,56 +136,131 @@ class UserImportDomainHandler extends Handler {
     }
 }
 
+async function listPasswordUsers(domainId: string, search = '') {
+    const UserModel = global.Hydro.model.user;
+    const query = search.trim().slice(0, 254);
+    let users;
+    if (!query) {
+        users = await UserModel.getMulti({ _id: { $gt: 0 } }, ['_id', 'uname'])
+            .sort({ _id: 1 }).limit(20).toArray();
+    } else {
+        users = await UserModel.getPrefixList(domainId, query, 20);
+        const exact = /^\d+$/.test(query)
+            ? await UserModel.getById(domainId, Number(query))
+            : await UserModel.getByUname(domainId, query);
+        if (exact) users = [exact, ...users.filter((user) => user._id !== exact._id)];
+    }
+    return { users: users.filter((user) => user._id > 0).slice(0, 20).map((user) => ({
+        _id: user._id, uname: user.uname, displayName: user.displayName || '',
+    })) };
+}
+
 class BatchChangePwdHandler extends Handler {
     async prepare() { this.checkPriv(PRIV.PRIV_EDIT_SYSTEM); }
 
-    async get() {
-        this.response.redirect = this.url('manage_user_import');
+    @param('search', Types.String, true)
+    @param('kind', Types.String, true)
+    async get(domainId: string, search?: string, kind?: string) {
+        if (kind === 'groups') {
+            const groups = await global.Hydro.model.user.listGroup(domainId);
+            this.response.body = { groups: groups.map((group) => ({
+                _id: group.name, name: group.name, count: new Set(group.uids).size,
+            })) };
+            return;
+        }
+        if (search === undefined) {
+            this.response.redirect = this.url('manage_user_import');
+            return;
+        }
+        this.response.body = await listPasswordUsers(domainId, search);
     }
 
-    @param('users', Types.Content)
+    @param('users', Types.Content, true)
     @param('draft', Types.Boolean)
-    async post(domainId: string, _users: string, draft: boolean) {
+    @param('mode', Types.String, true)
+    @param('uids', Types.NumericArray, true)
+    @param('password', Types.String, true)
+    @param('groups', Types.ArrayOf(Types.String), true)
+    async post(domainId: string, _users: string, draft: boolean, mode = 'text', uids: number[] = [], password = '', groups: string[] = []) {
         const UserModel = global.Hydro.model.user;
         const messages: string[] = [];
         const validRows: Array<{ lineNum: number; username: string; password: string; uid: number }> = [];
         const seenUsernames = new Map<string, number>();
 
-        for (const [i, u] of _users.split('\n').entries()) {
-            const trimmed = u.trim();
-            if (!trimmed || trimmed.startsWith('#')) continue;
+        if (!['text', 'select'].includes(mode)) {
+            this.response.body = { messages: ['不支持的修改模式。'] };
+            return;
+        }
+        if (mode === 'select') {
+            if ((!uids.length && !groups.length) || uids.some((uid) => !Number.isSafeInteger(uid) || uid <= 0)) {
+                this.response.body = { messages: ['请选择至少一名有效用户或一个小组。'] };
+                return;
+            }
+            if (!isPassword(password)) {
+                this.response.body = { messages: ['密码长度至少为 5 个字符。'] };
+                return;
+            }
+            const targetUids = new Set(uids);
+            if (groups.length) {
+                const availableGroups = await UserModel.listGroup(domainId);
+                for (const name of new Set(groups)) {
+                    const group = availableGroups.find((item) => item.name === name);
+                    if (!group) {
+                        this.response.body = { messages: [`小组「${name}」不存在，请刷新后重新选择。未修改任何密码。`] };
+                        return;
+                    }
+                    messages.push(`小组「${name}」：${new Set(group.uids).size} 名成员。`);
+                    for (const uid of group.uids) {
+                        if (Number.isSafeInteger(uid) && uid > 0) targetUids.add(uid);
+                    }
+                }
+            }
+            for (const uid of targetUids) {
+                const udoc = await UserModel.getById('system', uid);
+                if (!udoc) {
+                    messages.push(`UID=${uid}: 用户不存在，已跳过。`);
+                    continue;
+                }
+                if (draft) messages.push(`[预览] 将修改用户「${udoc.uname}」(UID=${uid}) 的密码。`);
+                validRows.push({ lineNum: validRows.length + 1, username: udoc.uname, password, uid });
+            }
+        } else {
+            for (const [i, u] of (_users || '').split('\n').entries()) {
+                const trimmed = u.trim();
+                if (!trimmed || trimmed.startsWith('#')) continue;
 
-            const row = parsePwdLine(u, i + 1);
-            if (!row) {
-                messages.push(`Line ${i + 1}: Input invalid — expected "username, password".`);
-                continue;
-            }
-            if (!isUname(row.username)) {
-                messages.push(`Line ${row.lineNum}: Invalid username "${row.username}".`);
-                continue;
-            }
-            if (!isPassword(row.password)) {
-                messages.push(`Line ${row.lineNum}: Invalid password (minimum 5 characters).`);
-                continue;
-            }
+                const row = parsePwdLine(u, i + 1);
+                if (!row) {
+                    messages.push(`Line ${i + 1}: Input invalid — expected "username, password".`);
+                    continue;
+                }
+                if (!isUname(row.username)) {
+                    messages.push(`Line ${row.lineNum}: Invalid username "${row.username}".`);
+                    continue;
+                }
+                if (!isPassword(row.password)) {
+                    messages.push(`Line ${row.lineNum}: Invalid password (minimum 5 characters).`);
+                    continue;
+                }
 
-            const unameKey = row.username.toLowerCase();
-            if (seenUsernames.has(unameKey)) {
-                messages.push(`Line ${row.lineNum}: Username "${row.username}" duplicates line ${seenUsernames.get(unameKey)}.`);
-                continue;
-            }
-            seenUsernames.set(unameKey, row.lineNum);
+                const unameKey = row.username.toLowerCase();
+                if (seenUsernames.has(unameKey)) {
+                    messages.push(`Line ${row.lineNum}: Username "${row.username}" duplicates line ${seenUsernames.get(unameKey)}.`);
+                    continue;
+                }
+                seenUsernames.set(unameKey, row.lineNum);
 
-            const udoc = await UserModel.getByUname('system', row.username);
-            if (!udoc) {
-                messages.push(`Line ${row.lineNum}: User "${row.username}" not found.`);
-                continue;
-            }
+                const udoc = await UserModel.getByUname('system', row.username);
+                if (!udoc) {
+                    messages.push(`Line ${row.lineNum}: User "${row.username}" not found.`);
+                    continue;
+                }
 
-            if (draft) {
-                messages.push(`Line ${row.lineNum}: [PREVIEW] Would change password for "${row.username}" (uid=${udoc._id}).`);
+                if (draft) {
+                    messages.push(`Line ${row.lineNum}: [PREVIEW] Would change password for "${row.username}" (uid=${udoc._id}).`);
+                }
+                validRows.push({ lineNum: row.lineNum, username: row.username, password: row.password, uid: udoc._id });
             }
-            validRows.push({ lineNum: row.lineNum, username: row.username, password: row.password, uid: udoc._id });
         }
 
         messages.push(`${validRows.length} user(s) validated.`);

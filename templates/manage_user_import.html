@@ -1,6 +1,34 @@
 {% import "components/user.html" as user %}
 {% extends "manage_base.html" %}
 {% block manage_content %}
+<style>
+.batch-password .section__body { padding-top: 20px; }
+.batch-password .section__body > .row,
+.batch-password [data-pwd-select] > .row { margin-bottom: 20px; }
+.batch-password label { line-height: 1.6; }
+.batch-password .help-text { margin: 8px 0 0; color: #748394; font-size: 12px; line-height: 1.7; }
+.batch-password .pwd-password-panel { margin-top: 24px; padding: 20px; border: 1px solid #e4ebf2; border-radius: 10px; background: #f8fafc; }
+.batch-password .pwd-field-label { display: block; margin: 0 0 10px; color: #33465b; font-weight: 600; }
+.batch-password .pwd-input-group { display: flex; align-items: stretch; overflow: hidden; border: 1px solid #ced8e3; border-radius: 8px; background: #fff; transition: border-color .15s, box-shadow .15s; }
+.batch-password .pwd-input-group:focus-within { border-color: #5a9ed3; box-shadow: 0 0 0 3px rgba(90,158,211,.14); }
+.batch-password .pwd-input-group .textbox { flex: 1; width: 0; min-width: 0; height: 44px; margin: 0; padding: 0 12px; border: 0; border-radius: 0; box-shadow: none; background: transparent; }
+.batch-password .pwd-visibility { flex: 0 0 auto; min-width: 96px; margin: 0; padding: 0 14px; border: 0; border-left: 1px solid #e4ebf2; border-radius: 0; background: #f3f7fb; color: #397aaa; font-size: 13px; cursor: pointer; white-space: nowrap; }
+.batch-password .pwd-visibility:hover { background: #e8f1f9; }
+.batch-password .pwd-visibility:focus-visible { outline: 2px solid #5a9ed3; outline-offset: -3px; }
+.batch-password [name="pwd_messages"]:empty { display: none; }
+.batch-password [name="pwd_messages"] { margin: 20px 0 0; padding: 14px 16px; border: 1px solid #e4ebf2; border-radius: 8px; background: #f8fafc; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.7; }
+.batch-password .pwd-actions { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 24px; padding-top: 20px; border-top: 1px solid #edf1f5; }
+.batch-password .pwd-action-hint { margin: 0; color: #748394; font-size: 12px; line-height: 1.7; }
+.batch-password .pwd-action-buttons { display: flex; flex-shrink: 0; gap: 10px; }
+.batch-password .pwd-action-buttons .button { margin: 0; min-width: 104px; }
+@media (max-width: 600px) {
+  .batch-password .pwd-password-panel { padding: 16px; }
+  .batch-password .pwd-actions { align-items: stretch; flex-direction: column; gap: 12px; }
+  .batch-password .pwd-action-buttons .button { flex: 1; min-width: 0; }
+  .batch-password .pwd-visibility { min-width: 80px; padding: 0 10px; }
+}
+</style>
+
 <div class="section">
   <div class="section__header">
     <h1 class="section__title" data-heading>{{ _('Import User') }}</h1>
@@ -52,11 +80,43 @@
   </div>
 </div>
 
-<div class="section">
+<div class="section batch-password">
   <div class="section__header">
     <h1 class="section__title" data-heading>{{ _('Batch Change Password') }}</h1>
   </div>
   <div class="section__body">
+    <input type="hidden" name="pwd_csrf_token" value="{{ handler.csrfToken }}">
+    <div class="row"><div class="column">
+      <label>修改方式
+        <select data-url="{{ url('batch_change_pwd') }}" data-users-url="{{ url('batch_change_pwd') }}" name="pwd_mode" class="select">
+          <option value="select">选择用户，统一设置密码</option>
+          <option value="text">文本输入，逐人指定密码</option>
+        </select>
+      </label>
+    </div></div>
+    <div data-pwd-select>
+      <div class="row"><div class="column">
+        <label>选择用户（可搜索用户名或 UID，多选）
+          <input name="pwd_uids" type="text" class="textbox" autocomplete="off">
+        </label>
+        <p class="help-text" data-pwd-count>已选择 0 名用户</p>
+      </div></div>
+      <div class="row"><div class="column">
+        <label>选择当前域的小组（可搜索、多选）
+          <input name="pwd_groups" type="text" class="textbox" autocomplete="off" disabled placeholder="正在加载小组…">
+        </label>
+        <p class="help-text" data-pwd-group-status>可以同时选择用户和小组，重复成员只修改一次。预览可查看合并后的用户列表。</p>
+      </div></div>
+      <div class="pwd-password-panel">
+        <label for="pwd_password" class="pwd-field-label">统一设置的新密码</label>
+        <div class="pwd-input-group">
+          <input id="pwd_password" name="pwd_password" type="password" class="textbox" autocomplete="new-password" minlength="5" placeholder="输入至少 5 位新密码" aria-describedby="pwd_password_hint">
+          <button name="pwd_toggle_visibility" type="button" class="pwd-visibility" aria-controls="pwd_password" aria-pressed="false">显示明文</button>
+        </div>
+        <p id="pwd_password_hint" class="help-text">至少 5 个字符。修改后，所选用户需要重新登录。</p>
+      </div>
+    </div>
+    <div data-pwd-text hidden>
     <blockquote class="note">
       <p><strong>{{ _('Format') }}:</strong> {{ _('One entry per line, comma or tab separated:') }}</p>
       <ul style="margin:.3em 0 .3em 1.4em">
@@ -75,17 +135,21 @@ charlie, mynewpwd789</pre>
         <li>{{ _('Changing password forces the user to re-login.') }}</li>
       </ul>
     </blockquote>
-    <pre name="pwd_messages"></pre>
     {{ form.form_textarea({
         columns:null,
         label:'Users',
         name:'pwd_users',
         nospellcheck: true
         }) }}
-    <div class="row"><div class="column">
-      <button name="pwd_preview" class="rounded primary button">{{ _('Preview') }}</button>
-      <button name="pwd_submit" class="rounded button">{{ _('Execute') }}</button>
-    </div></div>
+    </div>
+    <pre name="pwd_messages" role="status" aria-live="polite"></pre>
+    <div class="pwd-actions">
+      <p class="pwd-action-hint">先预览确认用户名单，再执行修改。</p>
+      <div class="pwd-action-buttons">
+        <button name="pwd_preview" type="button" class="rounded button">预览名单</button>
+        <button name="pwd_submit" type="button" class="rounded primary button">修改密码</button>
+      </div>
+    </div>
   </div>
 </div>
 {% endblock %}
@@ -133,45 +197,136 @@ charlie, mynewpwd789</pre>
   submit.addEventListener('click', function () { run(false); });
 }());
 
-// Batch change password AJAX
-(function () {
-  var textarea = document.querySelector('[name="pwd_users"]');
-  var messages = document.querySelector('[name="pwd_messages"]');
-  var preview = document.querySelector('[name="pwd_preview"]');
-  var submit = document.querySelector('[name="pwd_submit"]');
-  if (!textarea || !messages || !preview || !submit) return;
-
-  function run(draft) {
+window.Hydro.extraPages.push(() => {
+  const { $, UserSelectAutoComplete, CustomSelectAutoComplete, request } = window.HydroExports;
+  const mode = document.querySelector('[name="pwd_mode"]');
+  if (!mode) return;
+  const password = document.querySelector('[name="pwd_password"]');
+  const visibilityToggle = document.querySelector('[name="pwd_toggle_visibility"]');
+  function setPasswordVisible(visible) {
+    password.type = visible ? 'text' : 'password';
+    visibilityToggle.textContent = visible ? '隐藏密码' : '显示明文';
+    visibilityToggle.setAttribute('aria-pressed', String(visible));
+  }
+  visibilityToggle.addEventListener('click', () => {
+    setPasswordVisible(password.type === 'password');
+  });
+  const textarea = document.querySelector('[name="pwd_users"]');
+  const messages = document.querySelector('[name="pwd_messages"]');
+  const preview = document.querySelector('[name="pwd_preview"]');
+  const submit = document.querySelector('[name="pwd_submit"]');
+  const selector = UserSelectAutoComplete.getOrConstruct(
+    $('[name="pwd_uids"]'),
+    {
+      multi: true,
+      props: {
+        multi: true,
+        height: "auto",
+        allowEmptyQuery: true,
+        cacheKey: "batch-password-users",
+        queryItems: async (query) => {
+          var _a;
+          const url = new URL(mode.dataset.usersUrl, window.location.origin);
+          url.searchParams.set("search", query || "");
+          const response = await fetch(url.toString(), { headers: { Accept: "application/json" } });
+          const data = await response.json();
+          if (!response.ok || data.error) throw new Error(((_a = data.error) == null ? void 0 : _a.message) || "\u52A0\u8F7D\u7528\u6237\u5931\u8D25");
+          return data.users;
+        },
+        renderItem: (user) => `${user.uname}${user.displayName ? ` (${user.displayName})` : ""} \xB7 UID=${user._id}`
+      }
+    }
+  );
+  let groupSelector;
+  function selectedGroups() {
+    if (!groupSelector) return [];
+    const value = groupSelector.value();
+    return Array.isArray(value) ? value : [];
+  }
+  function updateCount() {
+    const value = selector.value();
+    const count = Array.isArray(value) ? value.length : 0;
+    document.querySelector('[data-pwd-count]').textContent = `已选择 ${count} 名用户、${selectedGroups().length} 个小组（成员合并去重，以预览结果为准）`;
+    messages.textContent = '';
+  }
+  selector.onChange(updateCount);
+  (async () => {
+    const input = document.querySelector('[name="pwd_groups"]');
+    const status = document.querySelector('[data-pwd-group-status]');
+    try {
+      const url = new URL(mode.dataset.usersUrl, window.location.origin);
+      url.searchParams.set('kind', 'groups');
+      const response = await fetch(url.toString(), { headers: { Accept: 'application/json' } });
+      const data = await response.json();
+      if (!response.ok || data.error) throw new Error(data.error?.message || '加载小组失败');
+      input.disabled = false;
+      input.placeholder = '搜索小组名称';
+      groupSelector = CustomSelectAutoComplete.getOrConstruct($('[name="pwd_groups"]'), {
+        multi: true,
+        data: data.groups,
+        props: {
+          multi: true, height: 'auto', data: data.groups,
+          renderItem: (group) => `${group.name}（${group.count} 名成员）`,
+        },
+      });
+      groupSelector.onChange(updateCount);
+      if (!data.groups.length) status.textContent = '当前域暂无小组，仍可直接选择用户。';
+    } catch (error) {
+      input.placeholder = '小组加载失败';
+      status.textContent = `小组加载失败：${error.message || error}。请刷新重试，仍可直接选择用户。`;
+    }
+  })();
+  mode.addEventListener("change", () => {
+    document.querySelector("[data-pwd-select]").hidden = mode.value !== "select";
+    document.querySelector("[data-pwd-text]").hidden = mode.value !== "text";
+    messages.textContent = "";
+  });
+  async function run(draft) {
+    const selected = mode.value === "select";
+    const selectedUids = selector.value();
+    const uids = Array.isArray(selectedUids) ? selectedUids : [];
+    const groups = selectedGroups();
+    if (selected && !uids.length && !groups.length) {
+      messages.textContent = '请先选择需要修改密码的用户或小组。';
+      return;
+    }
+    if (selected && password.value.length < 5) {
+      messages.textContent = "\u5BC6\u7801\u957F\u5EA6\u81F3\u5C11\u4E3A 5 \u4E2A\u5B57\u7B26\u3002";
+      password.focus();
+      return;
+    }
+    if (!selected && !textarea.value.trim()) {
+      messages.textContent = "\u8BF7\u8F93\u5165\u7528\u6237\u540D\u548C\u65B0\u5BC6\u7801\uFF0C\u6BCF\u884C\u4E00\u6761\u3002";
+      return;
+    }
     preview.disabled = true;
     submit.disabled = true;
-    messages.textContent = '';
-    fetch('{{ url('batch_change_pwd') }}', {
-      method: 'POST',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        users: textarea.value,
-        draft: draft
-      })
-    }).then(function (res) {
-      return res.json().then(function (data) {
-        if (!res.ok || data.error) throw new Error((data.error && data.error.message) || res.statusText);
-        return data;
+    mode.disabled = true;
+    messages.textContent = draft ? "\u6B63\u5728\u9884\u89C8\u2026" : "\u6B63\u5728\u4FEE\u6539\u5BC6\u7801\u2026";
+    try {
+      const data = await request.post(mode.dataset.url, {
+        mode: mode.value,
+        draft,
+        ...selected ? { uids, groups, password: password.value } : { users: textarea.value },
+        csrf_token: document.querySelector('[name="pwd_csrf_token"]').value
       });
-    }).then(function (data) {
-      messages.textContent = (data.messages || []).join('\n');
-    }).catch(function (err) {
-      messages.textContent = err.message || String(err);
-    }).then(function () {
+      if (data.error) throw new Error(data.error.message || String(data.error));
+      messages.textContent = (data.messages || []).join("\n");
+      if (!draft && selected) {
+        password.value = '';
+        setPasswordVisible(false);
+      }
+    } catch (error) {
+      messages.textContent = error.message || String(error);
+    } finally {
       preview.disabled = false;
       submit.disabled = false;
-    });
+      mode.disabled = false;
+    }
   }
+  preview.addEventListener("click", () => run(true));
+  submit.addEventListener("click", () => run(false));
+});
 
-  preview.addEventListener('click', function () { run(true); });
-  submit.addEventListener('click', function () { run(false); });
-}());
 </script>
 {% endblock %}

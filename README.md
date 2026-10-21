@@ -116,3 +116,14 @@ Based on AGPL3 Section 7, when using this software, you must comply with the fol
 That is: When deploying Hydro, keep the "Powered by Hydro" text at the bottom, with "Hydro" linking to `hydro.js.org/this repository/fork`. If you modify/extend the source code, you must also open-source it under AGPL-3.0-or-later, and indicate in the footer as "Powered by Hydro, Modified by xxx".
 
 For commercial closed-source usage, please contact the Hydro team to purchase alternative licensing.
+
+## 批量修改密码
+
+在 `/manage/userimport` 页面的“批量修改密码”区域选择修改方式：
+
+- **选择用户，统一设置密码**：使用与原生小组管理相同的用户搜索多选器，搜索用户名或 UID，选中多名用户后输入统一的新密码。
+- **文本输入，逐人指定密码**：保留每行 `username, password` 的格式，支持 Tab 分隔、空行和 `#` 注释。
+
+两种模式均支持预览和执行，要求系统编辑权限，密码至少 5 个字符。预览不会修改密码；执行会逐个处理，显示结果，并沿用原有的令牌清理逻辑。
+
+选择用户模式也支持搜索、多选当前域的小组。执行时按小组的最新成员合并手动选择的用户，并按 UID 去重；预览列出实际受影响的用户，小组不存在时整批停止且不修改密码。
